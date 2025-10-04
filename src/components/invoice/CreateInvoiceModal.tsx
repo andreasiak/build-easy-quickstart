@@ -119,6 +119,14 @@ const CreateInvoiceModal = ({
       // Get the current quote (most recent version)
       const latestQuote = quoteData.quotes[0];
 
+      // Get vendor service fee percentage
+      const { data: serviceFeeData } = await supabase
+        .rpc('get_vendor_service_fee', { vendor_user_id: user.id });
+      
+      const serviceFeePercentage = serviceFeeData || 2.0;
+      const serviceFeeAmount = vatResult.total * (serviceFeePercentage / 100);
+      const vendorPayoutAmount = vatResult.total - serviceFeeAmount;
+
       // Create invoice
       const { data: invoice, error: invoiceError } = await (supabase as any)
         .from('invoices')
@@ -132,6 +140,9 @@ const CreateInvoiceModal = ({
           vat_rate: vatResult.vatRate,
           vat_basis: vatResult.vatBasis,
           total_amount: vatResult.total,
+          service_fee_percentage: serviceFeePercentage,
+          service_fee_amount: serviceFeeAmount,
+          vendor_payout_amount: vendorPayoutAmount,
           currency: 'EUR',
           status: 'draft',
           reverse_charge_note: vatResult.reverseChargeNote || null,
