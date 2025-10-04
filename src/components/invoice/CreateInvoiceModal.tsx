@@ -119,6 +119,19 @@ const CreateInvoiceModal = ({
       // Get the current quote (most recent version)
       const latestQuote = quoteData.quotes[0];
 
+      // Check if invoice already exists for this quote
+      const { data: existingInvoice } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('quote_id', latestQuote.id)
+        .maybeSingle();
+
+      if (existingInvoice) {
+        toast.error('An invoice already exists for this quote');
+        onClose();
+        return;
+      }
+
       // Get vendor service fee percentage
       const { data: serviceFeeData } = await supabase
         .rpc('get_vendor_service_fee', { vendor_user_id: user.id });
