@@ -95,22 +95,86 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          invoice_id: string
+          is_material: boolean | null
+          line_total: number
+          quantity: number | null
+          tax_rate_id: string | null
+          unit_amount: number
+          vat_amount: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          invoice_id: string
+          is_material?: boolean | null
+          line_total: number
+          quantity?: number | null
+          tax_rate_id?: string | null
+          unit_amount: number
+          vat_amount?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          invoice_id?: string
+          is_material?: boolean | null
+          line_total?: number
+          quantity?: number | null
+          tax_rate_id?: string | null
+          unit_amount?: number
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           client_id: string
           client_signature_url: string | null
           client_signed_at: string | null
           created_at: string
+          currency: string | null
+          dwelling_age_years: number | null
           id: string
           invoice_number: string
+          issued_at: string | null
+          legal_invoice_number: string | null
+          materials_percentage: number | null
           paid_at: string | null
           payment_intent_id: string | null
+          place_of_supply: string | null
+          property_area_sqm: number | null
+          property_location: string | null
           quote_id: string
+          quote_version_id: string | null
+          reverse_charge_note: string | null
           service_fee_amount: number
           service_fee_percentage: number
           status: string
+          stripe_invoice_id: string | null
+          stripe_pdf_url: string | null
+          subtotal_amount: number | null
+          tax_point: string | null
           total_amount: number
           updated_at: string
+          vat_amount: number | null
+          vat_basis: string | null
+          vat_rate: number | null
           vendor_id: string
           vendor_payout_amount: number
           vendor_signature_url: string | null
@@ -121,16 +185,33 @@ export type Database = {
           client_signature_url?: string | null
           client_signed_at?: string | null
           created_at?: string
+          currency?: string | null
+          dwelling_age_years?: number | null
           id?: string
           invoice_number: string
+          issued_at?: string | null
+          legal_invoice_number?: string | null
+          materials_percentage?: number | null
           paid_at?: string | null
           payment_intent_id?: string | null
+          place_of_supply?: string | null
+          property_area_sqm?: number | null
+          property_location?: string | null
           quote_id: string
+          quote_version_id?: string | null
+          reverse_charge_note?: string | null
           service_fee_amount: number
           service_fee_percentage?: number
           status?: string
+          stripe_invoice_id?: string | null
+          stripe_pdf_url?: string | null
+          subtotal_amount?: number | null
+          tax_point?: string | null
           total_amount: number
           updated_at?: string
+          vat_amount?: number | null
+          vat_basis?: string | null
+          vat_rate?: number | null
           vendor_id: string
           vendor_payout_amount: number
           vendor_signature_url?: string | null
@@ -141,22 +222,47 @@ export type Database = {
           client_signature_url?: string | null
           client_signed_at?: string | null
           created_at?: string
+          currency?: string | null
+          dwelling_age_years?: number | null
           id?: string
           invoice_number?: string
+          issued_at?: string | null
+          legal_invoice_number?: string | null
+          materials_percentage?: number | null
           paid_at?: string | null
           payment_intent_id?: string | null
+          place_of_supply?: string | null
+          property_area_sqm?: number | null
+          property_location?: string | null
           quote_id?: string
+          quote_version_id?: string | null
+          reverse_charge_note?: string | null
           service_fee_amount?: number
           service_fee_percentage?: number
           status?: string
+          stripe_invoice_id?: string | null
+          stripe_pdf_url?: string | null
+          subtotal_amount?: number | null
+          tax_point?: string | null
           total_amount?: number
           updated_at?: string
+          vat_amount?: number | null
+          vat_basis?: string | null
+          vat_rate?: number | null
           vendor_id?: string
           vendor_payout_amount?: number
           vendor_signature_url?: string | null
           vendor_signed_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invoices_quote_version_id_fkey"
+            columns: ["quote_version_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -959,6 +1065,7 @@ export type Database = {
           business_name: string
           created_at: string
           email: string | null
+          established_in_cyprus: boolean | null
           id: string
           insurance_coverage: boolean | null
           insurance_provider: string | null
@@ -974,6 +1081,12 @@ export type Database = {
           service_radius: string | null
           services_offered: Json | null
           specialty: string[] | null
+          stripe_charges_enabled: boolean | null
+          stripe_connect_id: string | null
+          stripe_onboarding_complete: boolean | null
+          stripe_onboarding_completed_at: string | null
+          stripe_onboarding_started_at: string | null
+          stripe_payouts_enabled: boolean | null
           team_size: number | null
           total_reviews: number | null
           updated_at: string
@@ -995,6 +1108,7 @@ export type Database = {
           business_name: string
           created_at?: string
           email?: string | null
+          established_in_cyprus?: boolean | null
           id?: string
           insurance_coverage?: boolean | null
           insurance_provider?: string | null
@@ -1010,6 +1124,12 @@ export type Database = {
           service_radius?: string | null
           services_offered?: Json | null
           specialty?: string[] | null
+          stripe_charges_enabled?: boolean | null
+          stripe_connect_id?: string | null
+          stripe_onboarding_complete?: boolean | null
+          stripe_onboarding_completed_at?: string | null
+          stripe_onboarding_started_at?: string | null
+          stripe_payouts_enabled?: boolean | null
           team_size?: number | null
           total_reviews?: number | null
           updated_at?: string
@@ -1031,6 +1151,7 @@ export type Database = {
           business_name?: string
           created_at?: string
           email?: string | null
+          established_in_cyprus?: boolean | null
           id?: string
           insurance_coverage?: boolean | null
           insurance_provider?: string | null
@@ -1046,6 +1167,12 @@ export type Database = {
           service_radius?: string | null
           services_offered?: Json | null
           specialty?: string[] | null
+          stripe_charges_enabled?: boolean | null
+          stripe_connect_id?: string | null
+          stripe_onboarding_complete?: boolean | null
+          stripe_onboarding_completed_at?: string | null
+          stripe_onboarding_started_at?: string | null
+          stripe_payouts_enabled?: boolean | null
           team_size?: number | null
           total_reviews?: number | null
           updated_at?: string
@@ -1096,11 +1223,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      invoice_analytics: {
+        Row: {
+          avg_days_to_pay: number | null
+          invoice_count: number | null
+          overdue_count: number | null
+          paid_count: number | null
+          pending_count: number | null
+          total_revenue: number | null
+          total_vat_collected: number | null
+          vat_basis: string | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_invoice_from_quote: {
         Args: { quote_request_id_param: string }
+        Returns: string
+      }
+      generate_legal_invoice_number: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
       get_client_quote_details: {
