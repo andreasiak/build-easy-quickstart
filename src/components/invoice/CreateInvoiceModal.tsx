@@ -119,7 +119,7 @@ const CreateInvoiceModal = ({
       // Get the current quote (most recent version)
       const latestQuote = quoteData.quotes[0];
 
-      // Check if invoice already exists for this quote
+      // Check if invoice already exists for this quote and delete it
       const { data: existingInvoice } = await supabase
         .from('invoices')
         .select('id')
@@ -127,9 +127,19 @@ const CreateInvoiceModal = ({
         .maybeSingle();
 
       if (existingInvoice) {
-        toast.error('An invoice already exists for this quote');
-        onClose();
-        return;
+        // Delete existing invoice items first
+        await supabase
+          .from('invoice_items')
+          .delete()
+          .eq('invoice_id', existingInvoice.id);
+        
+        // Delete existing invoice
+        await supabase
+          .from('invoices')
+          .delete()
+          .eq('id', existingInvoice.id);
+        
+        console.log('Deleted existing invoice to create new one');
       }
 
       // Get vendor service fee percentage
