@@ -21,16 +21,15 @@ export const AdminGuard = ({ children }: AdminGuardProps) => {
       }
 
       try {
-        // Check if user has admin role in database (role-based, not email-based)
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('user_id', user.id)
-          .single();
+        // Use has_role security definer function to check admin status
+        const { data, error } = await supabase.rpc('has_role' as any, {
+          _user_id: user.id,
+          _role: 'admin'
+        });
 
         if (error) throw error;
 
-        if (data?.user_type === 'admin') {
+        if (data === true) {
           setIsAdmin(true);
           
           // Log admin access

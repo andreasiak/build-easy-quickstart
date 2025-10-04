@@ -21,21 +21,44 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
   useEffect(() => {
     if (user && !loading) {
-      const fetchUserType = async () => {
+      const checkUserRole = async () => {
         try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('user_type')
-            .eq('user_id', user.id)
-            .single();
+          // Check if user is admin first (admins have access to everything)
+          const { data: isAdmin, error: adminError } = await supabase.rpc('has_role' as any, {
+            _user_id: user.id,
+            _role: 'admin'
+          });
 
-          if (error) {
-            console.error('Error fetching user type:', error);
-            toast.error('Failed to verify user permissions');
+          if (adminError) {
+            console.error('Error checking admin role:', adminError);
+          } else if (isAdmin) {
+            setUserType('admin');
+            setCheckingRole(false);
             return;
           }
 
-          setUserType(data?.user_type || null);
+          // Check each allowed role
+          for (const roleType of allowedUserTypes) {
+            const { data, error } = await supabase.rpc('has_role' as any, {
+              _user_id: user.id,
+              _role: roleType
+            });
+
+            if (error) {
+              console.error(`Error checking ${roleType} role:`, error);
+              continue;
+            }
+
+            if (data === true) {
+              setUserType(roleType);
+              setCheckingRole(false);
+              return;
+            }
+          }
+
+          // No matching role found
+          setUserType(null);
+          toast.error('Failed to verify user permissions');
         } catch (error) {
           console.error('Error:', error);
           toast.error('Authentication error');
@@ -44,11 +67,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
         }
       };
 
-      fetchUserType();
+      checkUserRole();
     } else if (!loading) {
       setCheckingRole(false);
     }
-  }, [user, loading]);
+  }, [user, loading, allowedUserTypes]);
 
   if (loading || checkingRole) {
     return (
