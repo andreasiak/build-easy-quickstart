@@ -23,42 +23,23 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     if (user && !loading) {
       const checkUserRole = async () => {
         try {
-          // Check if user is admin first (admins have access to everything)
-          const { data: isAdmin, error: adminError } = await supabase.rpc('has_role' as any, {
-            _user_id: user.id,
-            _role: 'admin'
-          });
+          // Check profiles table for user_type
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('user_type')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-          if (adminError) {
-            console.error('Error checking admin role:', adminError);
-          } else if (isAdmin) {
-            setUserType('admin');
+          if (profileError) {
+            console.error('Error checking user role:', profileError);
+          } else if (profileData && allowedUserTypes.includes(profileData.user_type as any)) {
+            setUserType(profileData.user_type);
             setCheckingRole(false);
             return;
           }
 
-          // Check each allowed role
-          for (const roleType of allowedUserTypes) {
-            const { data, error } = await supabase.rpc('has_role' as any, {
-              _user_id: user.id,
-              _role: roleType
-            });
-
-            if (error) {
-              console.error(`Error checking ${roleType} role:`, error);
-              continue;
-            }
-
-            if (data === true) {
-              setUserType(roleType);
-              setCheckingRole(false);
-              return;
-            }
-          }
-
           // No matching role found
           setUserType(null);
-          toast.error('Failed to verify user permissions');
         } catch (error) {
           console.error('Error:', error);
           toast.error('Authentication error');

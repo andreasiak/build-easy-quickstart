@@ -220,6 +220,18 @@ const CreateInvoiceModal = ({
         toast.error('Invoice created but Stripe sync failed. You can retry from the invoice page.');
       } else {
         console.log('Stripe invoice created:', stripeData);
+        
+        // Send email notification to client
+        try {
+          await supabase.functions.invoke('send-invoice-email', {
+            body: { invoiceId: invoice.id }
+          });
+          console.log('Invoice email sent to client');
+        } catch (emailError) {
+          console.error('Failed to send email:', emailError);
+          // Don't fail the whole process if email fails
+        }
+        
         toast.success('Invoice created and sent successfully!');
       }
 

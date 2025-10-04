@@ -28,11 +28,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             .from('profiles')
             .select('user_type')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
           if (error) {
             console.error('Error fetching user type:', error);
-            toast.error('Failed to verify user permissions');
             navigate(redirectTo);
             return;
           }
