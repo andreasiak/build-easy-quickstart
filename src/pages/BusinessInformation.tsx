@@ -13,7 +13,6 @@ import { Building, Upload, Plus, Trash2, Save, ArrowLeft, CheckCircle } from 'lu
 import { Link, useNavigate } from 'react-router-dom';
 import { validateInput, sanitizeInput, logSecurityEvent } from '@/utils/security';
 import BusinessPortfolio from '@/components/BusinessPortfolio';
-import StripeConnectButton from '@/components/invoice/StripeConnectButton';
 
 interface VendorProfile {
   business_name: string;
@@ -661,9 +660,6 @@ const BusinessInformation = () => {
             portfolioImages={portfolioImages}
             onPortfolioUpdate={setPortfolioImages}
           />
-
-          {/* Stripe Connect Payment Setup */}
-          <StripeConnectButton onComplete={fetchVendorProfile} />
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4">
