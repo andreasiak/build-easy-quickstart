@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Building, Star, Clock, MessageSquare, Euro, User, MonitorSpeaker, Trash2, FileText } from 'lucide-react';
+import InvoiceList from '@/components/invoice/InvoiceList';
 import { BsCardChecklist } from 'react-icons/bs';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -487,6 +488,11 @@ const VendorDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Invoices Section */}
+        <div className="mt-8">
+          <InvoiceList userRole="vendor" userId={user?.id || ''} />
+        </div>
+
         {/* Modals */}
         <EnhancedSendQuoteModal
           isOpen={sendQuoteModal.isOpen}
@@ -503,6 +509,13 @@ const VendorDashboard = () => {
           projectTitle={chatModal.projectTitle}
           clientId={chatModal.clientId}
           vendorId={chatModal.vendorId}
+        />
+
+        <CreateInvoiceModal
+          isOpen={createInvoiceModal.isOpen}
+          onClose={() => setCreateInvoiceModal({ isOpen: false, quoteRequestId: '' })}
+          quoteRequestId={createInvoiceModal.quoteRequestId}
+          onInvoiceCreated={fetchQuoteRequests}
         />
 
         <TicketDetailsModal

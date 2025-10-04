@@ -160,9 +160,31 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
                   {userRole === 'client' && invoice.status === 'sent' && (
                     <Button
                       size="sm"
-                      onClick={() => {
-                        toast.info('Payment link opening...');
-                        // Payment link would be from stripe_hosted_invoice_url
+                      onClick={async () => {
+                        try {
+                          // Call edge function to create/get payment URL
+                          const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
+                            'stripe-create-invoice',
+                            {
+                              body: {
+                                action: 'get-payment-url',
+                                invoiceId: invoice.id
+                              }
+                            }
+                          );
+
+                          if (paymentError) throw paymentError;
+
+                          if (paymentData?.hostedInvoiceUrl) {
+                            window.open(paymentData.hostedInvoiceUrl, '_blank');
+                            toast.success('Opening payment page...');
+                          } else {
+                            toast.error('Payment URL not available. Please contact support.');
+                          }
+                        } catch (error: any) {
+                          console.error('Payment error:', error);
+                          toast.error('Failed to open payment page. Please try again or contact support.');
+                        }
                       }}
                     >
                       <ExternalLink className="h-4 w-4 mr-1" />

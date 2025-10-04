@@ -224,13 +224,12 @@ const Index = () => {
           {/* Main Headline */}
           <div className="space-y-4">
             <h1 className="text-5xl md:text-7xl font-bold leading-tight">
-              I want to build
               <span className="bg-gradient-primary bg-clip-text text-transparent">
-                <TypingAnimation text=" anything" duration={2000} />
+                <TypingAnimation text="Build anything" duration={2000} />
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-              Share your vision, get matched with verified professionals instantly.
+              Write your idea, we'll connect you with the right builders fast.
             </p>
           </div>
 
