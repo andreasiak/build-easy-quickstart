@@ -113,7 +113,11 @@ const StripeConnectButton = ({ onComplete }: StripeConnectButtonProps) => {
 
     } catch (error: any) {
       console.error('Error enabling payments:', error);
-      toast.error('Failed to start Stripe onboarding');
+      const message = (error?.message as string) || (typeof error === 'string' ? error : '') || 'Failed to start Stripe onboarding';
+      const friendly = message.includes('signed up for Connect')
+        ? 'Stripe Connect is not enabled for this Stripe account. Enable Connect in your Stripe Dashboard (Test mode is fine), then retry.'
+        : message;
+      toast.error(friendly);
     } finally {
       setLoading(false);
     }

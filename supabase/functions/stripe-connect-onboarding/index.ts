@@ -161,10 +161,21 @@ serve(async (req) => {
     throw new Error('Invalid action');
 
   } catch (error: any) {
+    // Improve error visibility and map common Stripe errors to actionable messages
+    const stripeMessage = error?.raw?.message || error?.message || 'Unknown error';
+    let clientMessage = stripeMessage;
+
+    if (stripeMessage.includes('signed up for Connect')) {
+      clientMessage = 'Stripe Connect is not enabled for this account. Enable Connect (Test mode is fine) in your Stripe Dashboard and try again.';
+    } else if (error?.code === 'api_key_expired' || stripeMessage.includes('Expired API Key')) {
+      clientMessage = 'Stripe API key expired. Please update STRIPE_SECRET_KEY in Supabase secrets.';
+    }
+
     console.error('Error in stripe-connect-onboarding:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: clientMessage }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
 });
