@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { FileText, Download, ExternalLink, Loader2, PenTool } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -20,6 +23,8 @@ interface Invoice {
   stripe_pdf_url: string | null;
   vendor_id: string;
   client_id: string;
+  vendor_signed_at: string | null;
+  client_signed_at: string | null;
 }
 
 interface InvoiceListProps {
@@ -30,6 +35,11 @@ interface InvoiceListProps {
 const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [signModal, setSignModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [signatureName, setSignatureName] = useState('');
+  const [requiredName, setRequiredName] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -60,6 +70,8 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
         stripe_pdf_url: r.stripe_pdf_url ?? null,
         vendor_id: r.vendor_id,
         client_id: r.client_id,
+        vendor_signed_at: r.vendor_signed_at ?? null,
+        client_signed_at: r.client_signed_at ?? null,
       })) );
     } catch (error: any) {
       console.error('Error fetching invoices:', error);
@@ -89,6 +101,63 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
       voided: 'Voided',
     };
     return labels[status] || status;
+  };
+
+  const handleSignInvoice = async (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    
+    // Get vendor business name
+    if (userRole === 'vendor') {
+      const { data: vendorProfile } = await supabase
+        .from('vendor_profiles')
+        .select('business_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+      setRequiredName(vendorProfile?.business_name || '');
+    }
+    
+    setSignModal(true);
+  };
+
+  const processSignature = async () => {
+    if (!selectedInvoice || !signatureName.trim() || !requiredName) return;
+
+    if (signatureName.trim().toLowerCase() !== requiredName.toLowerCase()) {
+      toast.error(`Please enter exactly: ${requiredName}`);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const now = new Date().toISOString();
+      const signatureUrl = `signature-${userId}-${Date.now()}`;
+      
+      const updateData: any = {
+        vendor_signature_url: signatureUrl,
+        vendor_signed_at: now,
+        status: selectedInvoice.client_signed_at ? 'sent' : 'awaiting_client_signature'
+      };
+
+      const { error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .eq('id', selectedInvoice.id);
+
+      if (error) throw error;
+
+      toast.success('Invoice signed successfully!');
+      setSignModal(false);
+      setSignatureName('');
+      setSelectedInvoice(null);
+      
+      // Refresh invoices
+      await fetchInvoices();
+    } catch (error: any) {
+      console.error('Error signing:', error);
+      toast.error('Failed to sign invoice');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -157,6 +226,18 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
                       PDF
                     </Button>
                   )}
+                  
+                  {userRole === 'vendor' && !invoice.vendor_signed_at && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleSignInvoice(invoice)}
+                    >
+                      <PenTool className="h-4 w-4 mr-1" />
+                      Sign Invoice
+                    </Button>
+                  )}
+                  
                   {userRole === 'client' && invoice.status === 'sent' && (
                     <Button
                       size="sm"
@@ -197,6 +278,52 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
           </div>
         )}
       </CardContent>
+
+      {/* Signature Modal */}
+      <Dialog open={signModal} onOpenChange={setSignModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign Invoice</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              To sign this invoice, please enter your business name exactly as it appears in your profile:
+            </p>
+            
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium">Required name: {requiredName}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="signature">Your Signature</Label>
+              <Input
+                id="signature"
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+                placeholder="Enter your business name"
+                disabled={processing}
+              />
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setSignModal(false)} disabled={processing}>
+                Cancel
+              </Button>
+              <Button onClick={processSignature} disabled={processing || !signatureName.trim()}>
+                {processing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing...
+                  </>
+                ) : (
+                  'Confirm Signature'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
