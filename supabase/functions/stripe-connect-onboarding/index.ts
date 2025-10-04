@@ -35,7 +35,19 @@ serve(async (req) => {
     }
 
     const { action, accountId, refreshUrl, returnUrl } = await req.json();
-    console.log('Stripe Connect action:', action, 'for user:', user.id);
+    // Enforce HTTPS redirect URLs for Stripe in live mode; fallback to FRONTEND_URL
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || '';
+    const ensureHttps = (url: string | undefined, fallbackPath: string) => {
+      try {
+        if (url && url.startsWith('https://')) return url;
+      } catch (_) {}
+      if (frontendUrl) return `${frontendUrl}${fallbackPath}`;
+      // As a last resort, allow provided URL even if not https (test mode)
+      return url || fallbackPath;
+    };
+    const safeRefreshUrl = ensureHttps(refreshUrl, '/business-information?stripe_refresh=true');
+    const safeReturnUrl = ensureHttps(returnUrl, '/business-information?stripe_complete=true');
+    console.log('Stripe Connect action:', action, 'for user:', user.id, { accountId, safeRefreshUrl, safeReturnUrl });
 
     if (action === 'create') {
       // Get vendor profile to get email
@@ -75,8 +87,8 @@ serve(async (req) => {
       // Create onboarding link
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
-        refresh_url: refreshUrl,
-        return_url: returnUrl,
+        refresh_url: safeRefreshUrl,
+        return_url: safeReturnUrl,
         type: 'account_onboarding',
       });
 
@@ -91,8 +103,8 @@ serve(async (req) => {
       // Refresh onboarding link
       const accountLink = await stripe.accountLinks.create({
         account: accountId,
-        refresh_url: refreshUrl,
-        return_url: returnUrl,
+        refresh_url: safeRefreshUrl,
+        return_url: safeReturnUrl,
         type: 'account_onboarding',
       });
 
