@@ -41,12 +41,19 @@ export function InvoiceList({ userRole, userId }: InvoiceListProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchInvoices();
+    if (userId) {
+      fetchInvoices();
+    } else {
+      console.log('InvoiceList: No userId provided');
+      setLoading(false);
+    }
   }, [userId, userRole]);
 
   const fetchInvoices = async () => {
     try {
       setLoading(true);
+      console.log('Fetching invoices for:', { userRole, userId });
+      
       const query = supabase
         .from('invoices')
         .select('*')
@@ -60,9 +67,15 @@ export function InvoiceList({ userRole, userId }: InvoiceListProps) {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        throw error;
+      }
+      
+      console.log('Fetched invoices:', data);
       setInvoices(data || []);
     } catch (error: any) {
+      console.error('fetchInvoices error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -197,8 +210,11 @@ export function InvoiceList({ userRole, userId }: InvoiceListProps) {
 
   const handlePayNow = async (invoice: Invoice) => {
     try {
+      console.log('handlePayNow called for invoice:', invoice.id);
+      
       // If we already have the hosted URL, use it
       if (invoice.stripe_hosted_invoice_url) {
+        console.log('Opening Stripe URL:', invoice.stripe_hosted_invoice_url);
         window.open(invoice.stripe_hosted_invoice_url, '_blank');
         toast({
           title: "Opening payment page",
@@ -206,6 +222,8 @@ export function InvoiceList({ userRole, userId }: InvoiceListProps) {
         });
         return;
       }
+
+      console.log('No hosted URL found, fetching from database...');
 
       // Otherwise fetch it from the database
       const { data: invoiceData, error } = await supabase
@@ -343,7 +361,12 @@ export function InvoiceList({ userRole, userId }: InvoiceListProps) {
                         {invoice.status === 'sent' && (
                           <Button
                             size="sm"
-                            onClick={() => handlePayNow(invoice)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('Pay Now button clicked for invoice:', invoice.id);
+                              handlePayNow(invoice);
+                            }}
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Pay Now
