@@ -34,6 +34,7 @@ serve(async (req) => {
         vat_amount,
         subtotal_amount,
         stripe_pdf_url,
+        stripe_hosted_invoice_url,
         client_id,
         vendor_id
       `)
@@ -99,10 +100,15 @@ serve(async (req) => {
 
                 ${invoice.stripe_pdf_url ? `
                   <p>You can view and download your invoice using the button below:</p>
-                  <a href="${invoice.stripe_pdf_url}" class="button">View Invoice PDF</a>
+                  <a href="${invoice.stripe_pdf_url}" class="button" style="margin-bottom: 10px; display: inline-block;">View Invoice PDF</a>
                 ` : ''}
 
-                <p>Please log in to your BuildEasy dashboard to view the full invoice details and manage payment.</p>
+                ${invoice.stripe_hosted_invoice_url ? `
+                  <p style="margin-top: 20px;">Ready to pay? Click the button below to complete your payment securely:</p>
+                  <a href="${invoice.stripe_hosted_invoice_url}" class="button" style="background: #10b981;">Pay Invoice Now</a>
+                ` : ''}
+
+                <p style="margin-top: 20px;">You can also log in to your BuildEasy dashboard to view the full invoice details and manage payment.</p>
                 
                 <p>If you have any questions about this invoice, please contact ${vendorName} directly.</p>
               </div>

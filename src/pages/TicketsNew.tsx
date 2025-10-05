@@ -13,7 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import SendMessageModal from '@/components/SendMessageModal';
 import TicketDetailsModal from '@/components/TicketDetailsModal';
 import QuoteDetailsModal from '@/components/QuoteDetailsModal';
-import InvoiceModal from '@/components/InvoiceModal';
+
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
 import { ProjectTabsFixed as ProjectTabs } from '@/components/ProjectTabsFixed';
 
@@ -449,17 +449,6 @@ const TicketsNew = () => {
                   setShowInvoiceModal(true);
                 }
                 // Refresh tickets after any action
-                if (activeProjectId) {
-                  fetchTicketsForProject(activeProjectId);
-                }
-              }}
-            />
-            <InvoiceModal
-              isOpen={showInvoiceModal}
-              onClose={() => setShowInvoiceModal(false)}
-              quoteRequestId={selectedTicket.id}
-              onInvoiceCreated={() => {
-                // Refresh tickets after invoice creation
                 if (activeProjectId) {
                   fetchTicketsForProject(activeProjectId);
                 }

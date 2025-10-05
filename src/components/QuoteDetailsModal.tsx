@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import NegotiateQuoteModal from './NegotiateQuoteModal';
 import QuotesArchive from './QuotesArchive';
-import InvoiceModal from './InvoiceModal';
+
 import { 
   Euro, 
   Calendar, 
@@ -545,15 +545,6 @@ const QuoteDetailsModal: React.FC<QuoteDetailsModalProps> = ({
           onClose={() => setShowArchive(false)}
         />
 
-        <InvoiceModal
-          isOpen={showInvoiceModal}
-          onClose={() => setShowInvoiceModal(false)}
-          quoteRequestId={quoteRequestId}
-          onInvoiceCreated={() => {
-            // Refresh quote details or handle post-invoice creation
-            fetchQuoteDetails();
-          }}
-        />
 
         {/* Portfolio Warning Dialog */}
         <Dialog open={showPortfolioWarning} onOpenChange={setShowPortfolioWarning}>

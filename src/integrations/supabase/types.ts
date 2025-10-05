@@ -166,6 +166,7 @@ export type Database = {
           service_fee_amount: number
           service_fee_percentage: number
           status: string
+          stripe_hosted_invoice_url: string | null
           stripe_invoice_id: string | null
           stripe_pdf_url: string | null
           subtotal_amount: number | null
@@ -203,6 +204,7 @@ export type Database = {
           service_fee_amount: number
           service_fee_percentage?: number
           status?: string
+          stripe_hosted_invoice_url?: string | null
           stripe_invoice_id?: string | null
           stripe_pdf_url?: string | null
           subtotal_amount?: number | null
@@ -240,6 +242,7 @@ export type Database = {
           service_fee_amount?: number
           service_fee_percentage?: number
           status?: string
+          stripe_hosted_invoice_url?: string | null
           stripe_invoice_id?: string | null
           stripe_pdf_url?: string | null
           subtotal_amount?: number | null

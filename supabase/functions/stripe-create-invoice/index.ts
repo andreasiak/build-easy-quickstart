@@ -156,17 +156,18 @@ serve(async (req) => {
 
     console.log('Finalized invoice, PDF:', finalizedInvoice.invoice_pdf);
 
-    // Update our invoice
+    // Update our invoice with Stripe details
     await supabaseClient
       .from('invoices')
       .update({
         stripe_invoice_id: finalizedInvoice.id,
         stripe_pdf_url: finalizedInvoice.invoice_pdf,
+        stripe_hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
         status: 'sent',
       })
       .eq('id', invoiceId);
 
-    console.log('Updated invoice in database');
+    console.log('Updated invoice in database with payment URL');
 
     return new Response(
       JSON.stringify({

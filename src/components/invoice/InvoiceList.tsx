@@ -1,30 +1,29 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FileText, Download, ExternalLink, Loader2, PenTool } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Download, FileText, ExternalLink, Loader2 } from "lucide-react";
 
 interface Invoice {
   id: string;
   invoice_number: string;
-  legal_invoice_number: string | null;
+  legal_invoice_number: string;
   total_amount: number;
-  subtotal_amount: number;
   vat_amount: number;
-  vat_rate: number;
+  subtotal_amount: number;
   status: string;
-  created_at: string;
-  stripe_pdf_url: string | null;
-  vendor_id: string;
-  client_id: string;
   vendor_signed_at: string | null;
   client_signed_at: string | null;
+  stripe_pdf_url: string | null;
+  stripe_hosted_invoice_url: string | null;
+  created_at: string;
+  vendor_id: string;
+  client_id: string;
 }
 
 interface InvoiceListProps {
@@ -32,14 +31,14 @@ interface InvoiceListProps {
   userId: string;
 }
 
-const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
+export function InvoiceList({ userRole, userId }: InvoiceListProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [signModal, setSignModal] = useState(false);
+  const [signatureModal, setSignatureModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [signatureName, setSignatureName] = useState('');
-  const [requiredName, setRequiredName] = useState('');
+  const [signature, setSignature] = useState("");
   const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchInvoices();
@@ -48,284 +47,366 @@ const InvoiceList = ({ userRole, userId }: InvoiceListProps) => {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const filterColumn = userRole === 'vendor' ? 'vendor_id' : 'client_id';
-      
-      const { data, error } = await supabase
+      const query = supabase
         .from('invoices')
         .select('*')
-        .eq(filterColumn, userId)
         .order('created_at', { ascending: false });
 
-      const rows = (data as any[]) || [];
-      setInvoices(rows.map((r: any) => ({
-        id: r.id,
-        invoice_number: r.invoice_number,
-        legal_invoice_number: r.legal_invoice_number ?? null,
-        total_amount: Number(r.total_amount ?? 0),
-        subtotal_amount: Number(r.subtotal_amount ?? 0),
-        vat_amount: Number(r.vat_amount ?? 0),
-        vat_rate: Number(r.vat_rate ?? 0),
-        status: r.status ?? 'draft',
-        created_at: r.created_at,
-        stripe_pdf_url: r.stripe_pdf_url ?? null,
-        vendor_id: r.vendor_id,
-        client_id: r.client_id,
-        vendor_signed_at: r.vendor_signed_at ?? null,
-        client_signed_at: r.client_signed_at ?? null,
-      })) );
+      if (userRole === 'vendor') {
+        query.eq('vendor_id', userId);
+      } else {
+        query.eq('client_id', userId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setInvoices(data || []);
     } catch (error: any) {
-      console.error('Error fetching invoices:', error);
-      toast.error('Failed to load invoices');
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      draft: 'outline',
-      sent: 'secondary',
-      paid: 'default',
-      payment_failed: 'destructive',
-      voided: 'destructive',
+    const statusMap: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
+      draft: { variant: "outline", label: "Draft" },
+      sent: { variant: "default", label: "Sent" },
+      paid: { variant: "secondary", label: "Paid" },
+      cancelled: { variant: "destructive", label: "Cancelled" },
     };
-    return variants[status] || 'outline';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      draft: 'Draft',
-      sent: 'Sent',
-      paid: 'Paid',
-      payment_failed: 'Payment Failed',
-      voided: 'Voided',
-    };
-    return labels[status] || status;
+    const config = statusMap[status] || { variant: "outline", label: status };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const handleSignInvoice = async (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    
-    // Get vendor business name
     if (userRole === 'vendor') {
+      // Fetch vendor business name
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
         .select('business_name')
         .eq('user_id', userId)
-        .maybeSingle();
-      setRequiredName(vendorProfile?.business_name || '');
+        .single();
+
+      setSignature(vendorProfile?.business_name || '');
     }
-    
-    setSignModal(true);
+    setSelectedInvoice(invoice);
+    setSignatureModal(true);
   };
 
   const processSignature = async () => {
-    if (!selectedInvoice || !signatureName.trim() || !requiredName) return;
-
-    if (signatureName.trim().toLowerCase() !== requiredName.toLowerCase()) {
-      toast.error(`Please enter exactly: ${requiredName}`);
+    if (!selectedInvoice || !signature.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your signature",
+        variant: "destructive",
+      });
       return;
     }
 
-    setProcessing(true);
     try {
-      const now = new Date().toISOString();
-      const signatureUrl = `signature-${userId}-${Date.now()}`;
-      
-      const updateData: any = {
-        vendor_signature_url: signatureUrl,
-        vendor_signed_at: now,
-        status: selectedInvoice.client_signed_at ? 'sent' : 'awaiting_client_signature'
-      };
+      setProcessing(true);
 
-      const { error } = await supabase
-        .from('invoices')
-        .update(updateData)
-        .eq('id', selectedInvoice.id);
+      if (userRole === 'vendor') {
+        // Vendor signing - update invoice and create Stripe invoice
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({
+            vendor_signed_at: new Date().toISOString(),
+            vendor_signature_url: signature,
+          })
+          .eq('id', selectedInvoice.id);
 
-      if (error) throw error;
+        if (updateError) throw updateError;
 
-      toast.success('Invoice signed successfully!');
-      setSignModal(false);
-      setSignatureName('');
-      setSelectedInvoice(null);
-      
-      // Refresh invoices
-      await fetchInvoices();
+        // Get vendor's Stripe Connect ID
+        const { data: vendorProfile } = await supabase
+          .from('vendor_profiles')
+          .select('stripe_connect_id')
+          .eq('user_id', userId)
+          .single();
+
+        if (!vendorProfile?.stripe_connect_id) {
+          toast({
+            title: "Stripe Setup Required",
+            description: "Please complete Stripe Connect onboarding first",
+            variant: "destructive",
+          });
+          setProcessing(false);
+          return;
+        }
+
+        // Create Stripe invoice
+        const { data: stripeData, error: stripeError } = await supabase.functions.invoke(
+          'stripe-create-invoice',
+          {
+            body: {
+              invoiceId: selectedInvoice.id,
+              stripeConnectAccountId: vendorProfile.stripe_connect_id,
+            },
+          }
+        );
+
+        if (stripeError) throw stripeError;
+
+        // Send email to client
+        await supabase.functions.invoke('send-invoice-email', {
+          body: { invoiceId: selectedInvoice.id },
+        });
+
+        toast({
+          title: "Success",
+          description: "Invoice signed and sent to client",
+        });
+      } else {
+        // Client signing (acknowledgment only)
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({
+            client_signed_at: new Date().toISOString(),
+            client_signature_url: signature,
+          })
+          .eq('id', selectedInvoice.id);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Success",
+          description: "Invoice acknowledged",
+        });
+      }
+
+      setSignatureModal(false);
+      setSignature("");
+      fetchInvoices();
     } catch (error: any) {
-      console.error('Error signing:', error);
-      toast.error('Failed to sign invoice');
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setProcessing(false);
     }
   };
 
+  const handlePayNow = async (invoice: Invoice) => {
+    try {
+      // If we already have the hosted URL, use it
+      if (invoice.stripe_hosted_invoice_url) {
+        window.open(invoice.stripe_hosted_invoice_url, '_blank');
+        toast({
+          title: "Opening payment page",
+          description: "You will be redirected to Stripe to complete your payment",
+        });
+        return;
+      }
+
+      // Otherwise fetch it from the database
+      const { data: invoiceData, error } = await supabase
+        .from('invoices')
+        .select('stripe_hosted_invoice_url')
+        .eq('id', invoice.id)
+        .single();
+
+      if (error) throw error;
+
+      if (invoiceData?.stripe_hosted_invoice_url) {
+        window.open(invoiceData.stripe_hosted_invoice_url, '_blank');
+        toast({
+          title: "Opening payment page",
+          description: "You will be redirected to Stripe to complete your payment",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Payment URL not available. Please contact the vendor.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to open payment page. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Invoices
-        </CardTitle>
-        <CardDescription>
-          {userRole === 'vendor' 
-            ? 'Invoices you have issued to clients'
-            : 'Invoices from your projects'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {invoices.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-            <p>No invoices yet</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono font-semibold text-sm">
-                      {invoice.legal_invoice_number || invoice.invoice_number}
-                    </span>
-                    <Badge variant={getStatusBadge(invoice.status)}>
-                      {getStatusLabel(invoice.status)}
-                    </Badge>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoices</CardTitle>
+          <CardDescription>
+            {userRole === 'vendor' 
+              ? 'Manage your invoices and track payments' 
+              : 'View and pay your invoices'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {invoices.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No invoices yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {invoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="border rounded-lg p-4 space-y-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold">
+                        {invoice.legal_invoice_number || invoice.invoice_number}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(invoice.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {getStatusBadge(invoice.status)}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    €{invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {' • '}
-                    {formatDistanceToNow(new Date(invoice.created_at), { addSuffix: true })}
+
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Subtotal</p>
+                      <p className="font-medium">
+                        €{Number(invoice.subtotal_amount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">VAT</p>
+                      <p className="font-medium">
+                        €{Number(invoice.vat_amount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Total</p>
+                      <p className="font-semibold text-lg">
+                        €{Number(invoice.total_amount).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Subtotal: €{invoice.subtotal_amount.toFixed(2)} + VAT ({invoice.vat_rate}%): €{invoice.vat_amount.toFixed(2)}
+
+                  <div className="flex flex-wrap gap-2">
+                    {/* Download PDF Button */}
+                    {invoice.stripe_pdf_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(invoice.stripe_pdf_url!, '_blank')}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </Button>
+                    )}
+
+                    {/* Vendor Actions */}
+                    {userRole === 'vendor' && (
+                      <>
+                        {!invoice.vendor_signed_at && invoice.status === 'draft' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSignInvoice(invoice)}
+                            disabled={processing}
+                          >
+                            Sign & Send Invoice
+                          </Button>
+                        )}
+                        {invoice.vendor_signed_at && (
+                          <Badge variant="secondary">
+                            Signed on {new Date(invoice.vendor_signed_at).toLocaleDateString()}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+
+                    {/* Client Actions */}
+                    {userRole === 'client' && (
+                      <>
+                        {invoice.status === 'sent' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handlePayNow(invoice)}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Pay Now
+                          </Button>
+                        )}
+                        {invoice.status === 'paid' && (
+                          <Badge variant="secondary">
+                            Paid
+                          </Badge>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex gap-2">
-                  {invoice.stripe_pdf_url && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(invoice.stripe_pdf_url!, '_blank')}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      PDF
-                    </Button>
-                  )}
-                  
-                  {userRole === 'vendor' && !invoice.vendor_signed_at && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleSignInvoice(invoice)}
-                    >
-                      <PenTool className="h-4 w-4 mr-1" />
-                      Sign Invoice
-                    </Button>
-                  )}
-                  
-                  {userRole === 'client' && invoice.status === 'sent' && (
-                    <Button
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          // Call edge function to create/get payment URL
-                          const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
-                            'stripe-create-invoice',
-                            {
-                              body: {
-                                action: 'get-payment-url',
-                                invoiceId: invoice.id
-                              }
-                            }
-                          );
-
-                          if (paymentError) throw paymentError;
-
-                          if (paymentData?.hostedInvoiceUrl) {
-                            window.open(paymentData.hostedInvoiceUrl, '_blank');
-                            toast.success('Opening payment page...');
-                          } else {
-                            toast.error('Payment URL not available. Please contact support.');
-                          }
-                        } catch (error: any) {
-                          console.error('Payment error:', error);
-                          toast.error('Failed to open payment page. Please try again or contact support.');
-                        }
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Pay Now
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Signature Modal */}
-      <Dialog open={signModal} onOpenChange={setSignModal}>
+      <Dialog open={signatureModal} onOpenChange={setSignatureModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sign Invoice</DialogTitle>
+            <DialogTitle>
+              {userRole === 'vendor' ? 'Sign Invoice' : 'Acknowledge Invoice'}
+            </DialogTitle>
+            <DialogDescription>
+              {userRole === 'vendor'
+                ? 'Sign this invoice to create the Stripe invoice and send it to the client'
+                : 'Acknowledge receipt of this invoice'}
+            </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              To sign this invoice, please enter your business name exactly as it appears in your profile:
-            </p>
-            
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium">Required name: {requiredName}</p>
-            </div>
-            
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="signature">Your Signature</Label>
+              <Label htmlFor="signature">
+                {userRole === 'vendor' ? 'Business Name' : 'Your Name'}
+              </Label>
               <Input
                 id="signature"
-                value={signatureName}
-                onChange={(e) => setSignatureName(e.target.value)}
-                placeholder="Enter your business name"
-                disabled={processing}
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                placeholder={userRole === 'vendor' ? 'Enter your business name' : 'Enter your name'}
               />
             </div>
-            
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setSignModal(false)} disabled={processing}>
-                Cancel
-              </Button>
-              <Button onClick={processSignature} disabled={processing || !signatureName.trim()}>
-                {processing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Signing...
-                  </>
-                ) : (
-                  'Confirm Signature'
-                )}
-              </Button>
-            </div>
           </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSignatureModal(false)}
+              disabled={processing}
+            >
+              Cancel
+            </Button>
+            <Button onClick={processSignature} disabled={processing}>
+              {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {userRole === 'vendor' ? 'Sign & Send' : 'Acknowledge'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
-};
+}
 
 export default InvoiceList;

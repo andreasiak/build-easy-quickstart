@@ -17,7 +17,7 @@ import QuoteDetailsModal from '@/components/QuoteDetailsModal';
 import UpdateQuoteModal from '@/components/UpdateQuoteModal';
 import EnhancedChatModal from '@/components/EnhancedChatModal';
 import NegotiateQuoteModal from '@/components/NegotiateQuoteModal';
-import InvoiceModal from '@/components/InvoiceModal';
+
 import {
   ArrowLeft, 
   Search, 
@@ -887,12 +887,6 @@ const ClientDashboard = () => {
           />
         )}
 
-        <InvoiceModal
-          isOpen={invoiceModal.isOpen}
-          onClose={() => setInvoiceModal({ isOpen: false, quoteRequestId: '' })}
-          quoteRequestId={invoiceModal.quoteRequestId}
-          onInvoiceCreated={() => fetchTickets()}
-        />
       
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
